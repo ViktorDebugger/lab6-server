@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import admin from "firebase-admin";
-import serviceAccount from "./my-travel-4003e-firebase-adminsdk-fbsvc-30bbdffc15.json" with { type: "json" };
 import path from "path";
 import { fileURLToPath } from "url";
 
