@@ -31,6 +31,22 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+const authenticateUser = async (req, res, next) => {
+  try {
+    const idToken = req.headers.authorization?.split("Bearer ")[1];
+    if (!idToken) {
+      return res.status(401).json({ message: "Unauthorized access" });
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error("Token verification error:", error);
+    res.status(401).json({ message: "Unauthorized access" });
+  }
+};
+
 app.get("/publications", async (_, res) => {
   try {
     const publicationsRef = db.collection("publications");
@@ -70,6 +86,35 @@ app.get("/publications/user", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch publications" });
   }
 });
+
+app.get("/publications/liked", authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const publicationsRef = db.collection("publications");
+
+    // Отримуємо всі публікації, які лайкнув користувач
+    const likedPublications = [];
+    const publicationsSnapshot = await publicationsRef.get();
+
+    for (const doc of publicationsSnapshot.docs) {
+      const likesRef = publicationsRef.doc(doc.id).collection("likes").doc(userId);
+      const likeSnapshot = await likesRef.get();
+
+      if (likeSnapshot.exists) {
+        likedPublications.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      }
+    }
+
+    res.status(200).json(likedPublications);
+  } catch (error) {
+    console.error("Error fetching liked publications:", error);
+    res.status(500).json({ error: "Failed to fetch liked publications" });
+  }
+});
+
 
 app.listen(port, () => {
   console.log("Server is running on http://localhost:" + port);
@@ -228,21 +273,6 @@ app.post("/publications/:publicationId/likes", async (req, res) => {
     }
   });
 
-  const authenticateUser = async (req, res, next) => {
-    try {
-      const idToken = req.headers.authorization?.split("Bearer ")[1];
-      if (!idToken) {
-        return res.status(401).json({ message: "Unauthorized access" });
-      }
-  
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
-      req.user = decodedToken;
-      next();
-    } catch (error) {
-      console.error("Token verification error:", error);
-      res.status(401).json({ message: "Unauthorized access" });
-    }
-  };
 
 app.post("/api/signup", async (req, res) => {
   try {
